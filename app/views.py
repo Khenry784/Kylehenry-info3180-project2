@@ -5,20 +5,133 @@ Werkzeug Documentation:  https://werkzeug.palletsprojects.com/
 This file creates your application.
 """
 
-from app import app
-from flask import render_template, request, jsonify, send_file
-import os
 
+import os
+import jwt
+from app import app, db, login_manager
+from flask import request, jsonify, session, send_file, send_from_directory,render_template
+from flask_login import login_user, logout_user, current_user, login_required
+from app.forms import LoginForm, RegistrationForm
+
+from app.models import Users, Follows,Likes,Posts
+from flask_wtf.csrf import generate_csrf
+from werkzeug.security import check_password_hash
+from werkzeug.utils import secure_filename
+from datetime import datetime, timedelta
 
 ###
 # Routing for your application.
 ###
+@login_manager.user_loader
+def user_loader(user_id):
+    """Given *user_id*, return the associated User object.
+    :param unicode user_id: user_id (email) user to retrieve
+    """
+    return Users.query.get(user_id)
 
 @app.route('/')
 def index():
     return jsonify(message="This is the beginning of our API")
 
+@app.route('/api/v1/register', methods = ['POST'])
+def register():
+    try:
+        form = RegistrationForm()
+        if request.method == "POST" and form.validate_on_submit():
+            
+            check_username = Users.query.filter_by(username=form.username.data).first()
+            check_email = Users.query.filter_by(email=form.email.data).first()
+            
+            if check_username is not None or check_email is not None:
+                return jsonify({
+                    "errors": ["User is in the system"]
+                }), 401
 
+
+            username = form.username.data
+            password = form.password.data
+            firstname =  form.firstname.data
+            lastname =  form.lastname.data
+            email = form.email.data
+            location = form.location.data
+            biography = form.biography.data
+            upload = form.profile_photo.data
+            filename = secure_filename(upload.filename)
+            joined_on = datetime.now()
+            
+            user = Users(username, password,firstname,lastname,email, location, biography, filename,joined_on)
+            db.session.add(user)
+            db.session.commit()
+            upload.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            
+            return jsonify({
+                'id': user.id,
+                'username': username,
+                'firstname': firstname,
+                'lastname': lastname,
+                'photo': filename,
+                'email': email,
+                'location': location,
+                'biography': biography,
+                'joined_on': user.joined_on
+            }), 201
+        return jsonify(errors=form_errors(form)), 401
+    except:
+        return jsonify({ "errors": form.errors}), 500
+
+
+
+@app.route("/api/v1/auth/login", methods=["POST"])
+def login():
+    form = LoginForm()
+
+    if request.method == "POST" and form.validate_on_submit():
+        # Get the username and password values from the form.
+        username = form.username.data
+        password = form.password.data
+
+        # This queries database for a user based on the username
+        # and password submitted.
+        user = Users.query.filter_by(username=username).first()
+
+        # Compares the submited password and username to the hash password and
+        # username in the database.
+        if user is not None and check_password_hash(user.password, password):
+            session['logged_in'] = True
+
+            #Creates the token for the user currently logging in
+            payload = {
+                'sub': user.id, # subject, usually a unique identifier
+                'user': username,
+                'iat': datetime.utcnow(),# issued at time
+                'exp': datetime.utcnow() + timedelta(hours=2) # expiration time
+            }
+
+            token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
+            login_user(user)
+
+            return jsonify(
+                { 
+                    "token": token , 
+                    "message": "Login Successfully",
+                    "id": user.id
+                }), 200
+        return jsonify(
+                { 
+                    "errors": ['Invalid credentials']
+                }), 401
+    
+    return jsonify(errors=form_errors(form)), 401
+
+@app.route('/api/v1/auth/logout', methods=["POST"])
+@login_required
+
+def logout():
+    logout_user()
+
+    return jsonify({
+        "message": "Log out successful"
+    }), 200
 ###
 # The functions below should be applicable to all Flask apps.
 ###
