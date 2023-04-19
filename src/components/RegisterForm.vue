@@ -1,17 +1,15 @@
 <template>
     
     <div class="form-container">
-        <div class="screen"> 
-        <h1>Register Form</h1>
-        
-        <div v-if="success" class="alert alert-success" role="alert">
-            <p>User Successfully added</p>
-        </div>
-        <div v-if="errors.length" class="alert alert-danger" role="alert">
-            <ul class="error">
-                <li  v-for="error in errors" :key="errors.indexOf(error)">{{ error }}</li>
+        <h1>Register </h1>
+        <div v-if="errors" class="alert alert-danger">
+            <ul>
+                <li v-for="error in errors" :key="errors.indexOf(error)">
+                    {{ error }}
+                </li>
             </ul>
         </div>
+        <div class="alert alert-success" role="alert" v-if="message">{{ message }}</div>
         <form 
             @submit.prevent="registerUser" 
             method="post" 
@@ -120,10 +118,15 @@
             </button>
         </form>
     </div>
-</div>
+
 </template>
 
 <script>
+import { ref, onMounted } from "vue";
+onMounted(() => {
+getCsrfToken();
+});
+let csrf_token = ref("");
 export default{
     name: 'RegisterForm',
     data(){
@@ -138,8 +141,8 @@ export default{
     },
     methods:{
         saveUser(){
-            let RegisterForm = document.getElementById('RegisterForm');
-            let form_data = new FormData(RegisterForm);
+            let registerForm = document.getElementById('registerForm');
+            let form_data = new FormData(registerForm);
             let self = this
             fetch("/api/v1/register", {
                 method: 'POST',
@@ -153,7 +156,7 @@ export default{
             })
             .then(function (data) {
                 // display a success message
-                console.log(data);
+                console.log(data, "data");
                 if('errors' in data){
                     self.errors=[...data.errors]
                     self.success = false
@@ -166,12 +169,14 @@ export default{
                 console.log(error);
             });
         },
+        
         getCsrfToken() {
+            let self= this;
             fetch('/api/v1/csrf-token')
-        .then((response) => response.json())
-        .then((data) => {
+            .then((response) => response.json())
+            .then((data) => {
             console.log(data);
-            csrf_token.value = data.csrf_token;
+            self.csrf_token = data.csrf_token;
         })
         }
     }
@@ -245,5 +250,8 @@ button{
 .submit-btn:hover {
 	border-color: #6A679E;
 	outline: none;
+}
+.alert{
+    margin-top: 1rem;
 }
 </style>

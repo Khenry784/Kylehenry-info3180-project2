@@ -107,7 +107,7 @@ export default{
 .screen {		
 	background: linear-gradient(90deg, #675eac, #7C78B8);		
 	position: relative;	
-	height: 600px;
+	height: 300px;
 	width: 360px;	
 	box-shadow: 0px 0px 24px #5C5696;
 }

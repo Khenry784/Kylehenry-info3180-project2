@@ -65,6 +65,7 @@ def register():
             upload.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             
             return jsonify({
+                'message': "User Added Sucessfully",
                 'id': user.id,
                 'username': username,
                 'firstname': firstname,
@@ -132,6 +133,18 @@ def logout():
     return jsonify({
         "message": "Log out successful"
     }), 200
+
+@app.route('/api/v1/csrf-token', methods=['GET'])
+def get_csrf():
+    return jsonify({'csrf_token': generate_csrf()})
+
+"""
+    ROUTE to retrieve images from upload folder
+"""
+@app.route('/uploads/<filename>')
+def get_image(filename):
+    return send_from_directory(os.path.join(os.getcwd(), app.config['UPLOAD_FOLDER']), filename)
+
 ###
 # The functions below should be applicable to all Flask apps.
 ###
